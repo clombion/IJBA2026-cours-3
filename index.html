@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inclusion Numérique - Bordeaux Métropole</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { margin: 0; padding: 0; font-family: sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .custom-popup b { color: #2c3e50; font-size: 1.1em; }
+        .custom-popup i { color: #7f8c8d; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- PapaParse pour lire le CSV -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+
+    <script>
+        // Initialisation de la carte centrée sur Bordeaux
+        var map = L.map('map').setView([44.837789, -0.57918], 12);
+
+        // Utilisation d'un fond de carte CartoDB (plus propre que OSM standard)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        // URL du fichier CSV (chemin relatif dans le repo)
+        const csvFile = 'RAW_met_lieux_inclusion_numerique - RAW_met_lieux_inclusion_numerique.csv';
+
+        // Chargement et traitement du CSV
+        Papa.parse(csvFile, {
+            download: true,
+            header: true,
+            skipEmptyLines: true,
+            complete: function(results) {
+                results.data.forEach(function(row) {
+                    // Extraction des coordonnées (on utilise les colonnes latitude/longitude)
+                    const lat = parseFloat(row.latitude);
+                    const lon = parseFloat(row.longitude);
+
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        const marker = L.marker([lat, lon]).addTo(map);
+                        
+                        // Création du contenu de la popup
+                        const popupContent = `
+                            <div class="custom-popup">
+                                <b>${row.nom}</b><br>
+                                <i>${row.type_lieu}</i><br><br>
+                                📍 ${row.adresse_brut}<br>
+                                👥 Public : ${row.public_cible}<br>
+                                💰 ${row.tarifs || row['Gratuit ou pas'] || 'Non précisé'}<br>
+                                ${row.contact_web ? `<br><a href="${row.contact_web}" target="_blank">Visiter le site web</a>` : ''}
+                            </div>
+                        `;
+                        marker.bindPopup(popupContent);
+                    }
+                });
+            },
+            error: function(err) {
+                console.error("Erreur lors du chargement du CSV:", err);
+            }
+        });
+    </script>
+</body>
+</html>
