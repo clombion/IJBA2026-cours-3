@@ -26,54 +26,78 @@
 
     <script>
         // Initialisation de la carte centrée sur Bordeaux
-        var map = L.map('map').setView([44.837789, -0.57918], 12);
+        var map = L.map('map').setView([44.837789, -0.57918], 11);
 
-        // Utilisation d'un fond de carte CartoDB (plus propre que OSM standard)
+        // Fond de carte sobre (CartoDB Positron)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 20
         }).addTo(map);
 
-        // URL du fichier CSV (chemin relatif dans le repo)
+        // 1. Ajout du contour de Bordeaux Métropole
+        // Source : Bordeaux Métropole Open Data
+        fetch('https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/33-gironde/communes-33-gironde.geojson')
+            .then(res => res.json())
+            .then(data => {
+                // On filtre pour ne garder que les communes de la métropole si nécessaire
+                // Pour simplifier ici on affiche le contour global ou on peut utiliser un service WFS
+                L.geoJSON(data, {
+                    filter: function(feature) {
+                        // Liste simplifiée des codes INSEE de la métropole ou nom
+                        const communesMetropole = ["Bordeaux", "Mérignac", "Pessac", "Talence", "Villenave-d'Ornon", "Saint-Médard-en-Jalles", "Bègles", "Gradignan", "Cenon", "Lormont", "Eysines", "Gujan-Mestras", "Floirac", "Blanquefort", "Ambarès-et-Lagrave", "Bruges", "Le Bouscat", "Parempuyre", "Artigues-près-Bordeaux", "Martignas-sur-Jalle", "Parempuyre", "Saint-Aubin-de-Médoc", "Taillan-Médoc", "Carbon-Blanc", "Saint-Louis-de-Montferrand", "Saint-Vincent-de-Paul", "Ambès", "Bouliac"];
+                        return communesMetropole.includes(feature.properties.nom);
+                    },
+                    style: {
+                        color: "#2c3e50",
+                        weight: 2,
+                        fillOpacity: 0.05,
+                        dashArray: '5, 5'
+                    }
+                }).addTo(map);
+            });
+
+        // 2. Chargement des points depuis le CSV
         const csvFile = 'RAW_met_lieux_inclusion_numerique - RAW_met_lieux_inclusion_numerique.csv';
 
-        // Chargement et traitement du CSV
         Papa.parse(csvFile, {
             download: true,
-            header: false, // On désactive les headers pour utiliser les index
+            header: false,
             skipEmptyLines: true,
             complete: function(results) {
-                // On saute la première ligne (les en-têtes)
                 const data = results.data.slice(1);
                 
                 data.forEach(function(row) {
-                    // Dans votre CSV :
-                    // Index 1 = Nom
-                    // Index 18 = Latitude (première occurrence)
-                    // Index 19 = Longitude (première occurrence)
-                    const name = row[1];
                     const lat = parseFloat(row[18]);
                     const lon = parseFloat(row[19]);
 
                     if (!isNaN(lat) && !isNaN(lon)) {
-                        const marker = L.marker([lat, lon]).addTo(map);
+                        // Utilisation de CircleMarker au lieu de Marker
+                        const marker = L.circleMarker([lat, lon], {
+                            radius: 6,
+                            fillColor: "#e67e22",
+                            color: "#d35400",
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.8
+                        }).addTo(map);
                         
                         const popupContent = `
                             <div class="custom-popup">
-                                <b>${name}</b><br>
-                                📍 ${row[9]}<br> <!-- adresse_brut -->
-                                👥 Public : ${row[4]}<br> <!-- public_cible -->
+                                <b>${row[1]}</b><br>
+                                📍 ${row[9]}<br>
+                                👥 Public : ${row[4]}<br>
                                 💰 ${row[33] || row[34] || 'Non précisé'}
                             </div>
                         `;
                         marker.bindPopup(popupContent);
                     }
                 });
-            },
-            error: function(err) {
-                console.error("Erreur lors du chargement du CSV:", err);
             }
+        });
+    </script>
+</body>
+</html>
         });
     </script>
 </body>
