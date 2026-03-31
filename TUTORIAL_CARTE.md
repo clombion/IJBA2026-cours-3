@@ -1,114 +1,85 @@
-# 🗺️ Tutoriel : Créer une carte interactive avec Leaflet & GitHub Pages
+# 🗺️ Stratégie & Technique : Créer une carte interactive avec l'IA
 
-Ce guide explique comment transformer un fichier CSV contenant des adresses ou des coordonnées GPS en une carte web dynamique, sans base de données complexe, et la déployer gratuitement.
+Ce guide est un aide-mémoire complet pour piloter une IA (comme Gemini ou ChatGPT) afin de transformer un fichier CSV brut en une carte interactive professionnelle déployée sur GitHub Pages.
 
-## 1. Préparation des données (Le CSV)
-Avant de coder, analysez votre fichier CSV.
-*   **Coordonnées** : Assurez-vous d'avoir des colonnes `latitude` et `longitude`.
-*   **Attention aux doublons** : Si votre CSV a plusieurs colonnes avec le même nom (comme c'était le cas ici), il faudra accéder aux données par leur **index numérique** (0, 1, 2...) plutôt que par leur nom.
-*   **Hébergement** : Le fichier CSV doit être dans le même dossier que votre fichier `index.html` sur GitHub.
+---
 
-## 2. Structure de base de la carte (HTML/CSS)
-Créez un fichier `index.html`. Nous utilisons **Leaflet**, la bibliothèque référence pour les cartes web.
+## I. Guide de Pilotage : Comment diriger l'IA ?
+
+Pour obtenir un résultat de qualité "journalisme de données", ne demandez pas tout d'un coup. Suivez ces étapes de dialogue avec l'IA :
+
+1.  **Phase de Diagnostic :** Demandez d'abord une description détaillée du CSV ("Décris-moi ce CSV"). L'IA doit identifier les colonnes et les erreurs potentielles (doublons de noms, colonnes vides).
+2.  **Phase d'Angle d'Analyse :** Exposez votre hypothèse (ex: "Je pense que l'offre est insuffisante"). Demandez quelles colonnes sont les plus pertinentes pour prouver ce point.
+3.  **Phase de Nettoyage :** Demandez un script Python pour extraire une statistique précise (ex: compter les niveaux de service). Cela crée une base de données propre.
+4.  **Phase de Prototypage :** Demandez une carte Leaflet avec deux contraintes :
+    *   Lecture **directe** du CSV (via PapaParse).
+    *   Un style **sobre** (ex: CartoDB Positron au lieu d'OpenStreetMap standard).
+5.  **Phase de Raffinement Visuel :** Demandez de remplacer les icônes par des points (`CircleMarker`) pour mieux voir la densité, et d'ajouter le contour GeoJSON du territoire (ex: Bordeaux Métropole).
+6.  **Phase de Déploiement :** Demandez à l'IA de "pusher" les fichiers sur GitHub pour activer la visualisation en ligne.
+
+---
+
+## II. Fiche Technique (Aide-mémoire Code)
+
+### 1. Structure HTML/JS de base
+Utilisez **Leaflet** pour la carte et **PapaParse** pour lire le CSV sans base de données.
 
 ```html
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Ma Carte Interactive</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        #map { height: 100vh; width: 100%; } /* La carte prend tout l'écran */
-        body { margin: 0; }
-    </style>
-</head>
-<body>
-    <div id="map"></div>
-    
-    <!-- Scripts nécessaires -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
-    
-    <script>
-        // Initialisation : [Latitude, Longitude], Zoom
-        var map = L.map('map').setView([44.837, -0.579], 12);
-
-        // Fond de carte (CartoDB Positron pour un style sobre)
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© OpenStreetMap'
-        }).addTo(map);
-    </script>
-</body>
-</html>
+<!-- Bibliothèques à inclure dans le <head> ou avant </body> -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 ```
 
-## 3. Chargement des données CSV (PapaParse)
-Plutôt que de convertir manuellement le CSV en JSON, on utilise **PapaParse** pour le lire en direct depuis le navigateur.
+### 2. Lecture du CSV (Le piège des index)
+Si votre CSV a des colonnes en doublon, forcez l'IA à utiliser les **index numériques** des colonnes plutôt que leurs noms :
 
 ```javascript
-Papa.parse('votre_fichier.csv', {
+Papa.parse('data.csv', {
     download: true,
-    header: false, // On utilise false si on a des doublons de noms de colonnes
-    skipEmptyLines: true,
+    header: false, // Important si noms de colonnes en doublon
     complete: function(results) {
-        const data = results.data.slice(1); // On enlève la ligne d'en-tête
-        
-        data.forEach(function(row) {
-            const lat = parseFloat(row[18]); // Index de la colonne Latitude
-            const lon = parseFloat(row[19]); // Index de la colonne Longitude
-
-            if (!isNaN(lat) && !isNaN(lon)) {
-                // Création d'un point (CircleMarker)
-                L.circleMarker([lat, lon], {
-                    radius: 6,
-                    fillColor: "#ff7800",
-                    color: "#000",
-                    weight: 1,
-                    fillOpacity: 0.8
-                }).addTo(map)
-                  .bindPopup(`<b>${row[1]}</b><br>${row[9]}`); // Popup avec nom et adresse
-            }
+        const data = results.data.slice(1); // On ignore l'en-tête
+        data.forEach(row => {
+            const lat = parseFloat(row[18]); // Index de la latitude
+            const lon = parseFloat(row[19]); // Index de la longitude
+            // ... création du point sur la carte
         });
     }
 });
 ```
 
-## 4. Ajout de contexte géographique (Contours GeoJSON)
-Pour rendre la carte plus professionnelle, on peut ajouter les limites administratives (ex: le contour d'une métropole).
+### 3. Style Visuel (Points vs Icônes)
+Pour une carte de densité, préférez les `CircleMarker` aux marqueurs classiques :
 
 ```javascript
-fetch('https://raw.githubusercontent.com/.../communes.geojson')
+L.circleMarker([lat, lon], {
+    radius: 6,
+    fillColor: "#e67e22",
+    color: "#d35400",
+    weight: 1,
+    fillOpacity: 0.8
+}).addTo(map);
+```
+
+### 4. Contour Géographique (GeoJSON)
+Ajoutez une couche de contexte pour délimiter votre zone d'étude :
+
+```javascript
+fetch('url_du_fichier.geojson')
     .then(res => res.json())
     .then(data => {
         L.geoJSON(data, {
-            style: {
-                color: "#333",
-                weight: 2,
-                fillOpacity: 0,
-                dashArray: '5, 5' // Ligne pointillée
-            }
+            style: { color: "#2c3e50", weight: 2, fillOpacity: 0.05, dashArray: '5, 5' }
         }).addTo(map);
     });
 ```
 
-## 5. Déploiement sur GitHub Pages
-C'est l'étape qui rend votre carte publique et accessible via une URL.
+---
 
-1.  **Versionner** : Envoyez vos fichiers (`index.html` et le `.csv`) sur votre dépôt GitHub.
-    ```bash
-    git add .
-    git commit -m "Déploiement de la carte"
-    git push origin main
-    ```
-2.  **Activer Pages** : 
-    *   Allez sur votre dépôt GitHub sur le web.
-    *   **Settings** > **Pages**.
-    *   Sous "Build and deployment", choisissez la branche `main` et le dossier `/ (root)`.
-    *   Enregistrez.
-3.  **Accéder à la carte** : Votre carte sera disponible sous quelques minutes à l'adresse :
-    `https://votre-pseudo.github.io/votre-repo/`
+## III. Déploiement GitHub Pages
 
-## 💡 Conseils de pro
-*   **Performance** : Leaflet supporte bien jusqu'à 1000-2000 points. Au-delà, utilisez des "Clusters" (regroupements de points).
-*   **Accessibilité** : Testez toujours votre carte sur mobile, les popups doivent rester lisibles.
-*   **Fonds de carte** : Vous pouvez changer le style de la carte sur [Leaflet Provider Demo](https://leaflet-extras.github.io/leaflet-providers/preview/).
+1.  Vérifiez que `index.html` et votre `.csv` sont à la racine du dépôt.
+2.  Allez dans **Settings > Pages** sur GitHub.
+3.  Sélectionnez la branche `main` et cliquez sur **Save**.
+4.  L'URL de votre carte sera : `https://[votre-pseudo].github.io/[nom-du-repo]/`
