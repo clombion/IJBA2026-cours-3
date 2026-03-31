@@ -3,102 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inclusion Numérique - Bordeaux Métropole</title>
+    <title>Carte de l'Inclusion Numérique - Bordeaux et environs</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
+    <!-- MarkerCluster CSS (Optionnel pour 125 points mais propre) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; }
-        #map { height: 100vh; width: 100%; }
-        .custom-popup b { color: #2c3e50; font-size: 1.1em; }
-        .custom-popup i { color: #7f8c8d; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #2c3e50; color: white; padding: 10px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; }
+        header h1 { margin: 0; font-size: 1.5em; }
+        #controls { background: #f8f9fa; padding: 15px; border-bottom: 1px solid #ddd; display: flex; gap: 20px; align-items: center; flex-wrap: wrap; z-index: 1000; }
+        #map { flex-grow: 1; width: 100%; z-index: 1; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        select, input { padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; min-width: 200px; }
+        .custom-popup b { color: #2c3e50; font-size: 1.2em; display: block; margin-bottom: 5px; }
+        .custom-popup small { color: #7f8c8d; }
+        .custom-popup a { color: #3498db; text-decoration: none; font-weight: bold; }
+        .custom-popup .services-list { margin-top: 10px; font-size: 0.9em; max-height: 100px; overflow-y: auto; background: #f9f9f9; padding: 5px; border-radius: 4px; }
+        .service-tag { display: inline-block; background: #e0e0e0; padding: 2px 6px; border-radius: 10px; margin: 2px; font-size: 0.8em; }
     </style>
 </head>
 <body>
+
+    <header>
+        <h1>Carte des lieux d'Inclusion Numérique</h1>
+    </header>
+
+    <div id="controls">
+        <div class="filter-group">
+            <label for="activity-filter"><b>Filtrer par activité :</b></label>
+            <select id="activity-filter">
+                <option value="all">Toutes les activités</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="search-input"><b>Rechercher un lieu :</b></label>
+            <input type="text" id="search-input" placeholder="Nom du lieu...">
+        </div>
+    </div>
 
     <div id="map"></div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- PapaParse pour lire le CSV -->
+    <!-- PapaParse pour le CSV -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- MarkerCluster JS -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
     <script>
-        // Initialisation de la carte centrée sur Bordeaux
+        // Initialisation de la carte sur Bordeaux
         var map = L.map('map').setView([44.837789, -0.57918], 11);
 
-        // Fond de carte sobre (CartoDB Positron)
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
             subdomains: 'abcd',
             maxZoom: 20
         }).addTo(map);
 
-        // 1. Ajout du contour de Bordeaux Métropole
-        // Source : Bordeaux Métropole Open Data
+        const markersGroup = L.markerClusterGroup();
+        map.addLayer(markersGroup);
+
+        // Ajout du contour de la Gironde
         fetch('https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/departements/33-gironde/communes-33-gironde.geojson')
             .then(res => res.json())
             .then(data => {
-                // On filtre pour ne garder que les communes de la métropole si nécessaire
-                // Pour simplifier ici on affiche le contour global ou on peut utiliser un service WFS
                 L.geoJSON(data, {
-                    filter: function(feature) {
-                        // Liste simplifiée des codes INSEE de la métropole ou nom
-                        const communesMetropole = ["Bordeaux", "Mérignac", "Pessac", "Talence", "Villenave-d'Ornon", "Saint-Médard-en-Jalles", "Bègles", "Gradignan", "Cenon", "Lormont", "Eysines", "Gujan-Mestras", "Floirac", "Blanquefort", "Ambarès-et-Lagrave", "Bruges", "Le Bouscat", "Parempuyre", "Artigues-près-Bordeaux", "Martignas-sur-Jalle", "Parempuyre", "Saint-Aubin-de-Médoc", "Taillan-Médoc", "Carbon-Blanc", "Saint-Louis-de-Montferrand", "Saint-Vincent-de-Paul", "Ambès", "Bouliac"];
-                        return communesMetropole.includes(feature.properties.nom);
-                    },
-                    style: {
-                        color: "#2c3e50",
-                        weight: 2,
-                        fillOpacity: 0.05,
-                        dashArray: '5, 5'
-                    }
+                    style: { color: "#2c3e50", weight: 1, fillOpacity: 0.02, dashArray: '3' }
                 }).addTo(map);
             });
 
-        // 2. Chargement des points depuis le CSV
-        const csvFile = 'RAW_met_lieux_inclusion_numerique - RAW_met_lieux_inclusion_numerique.csv';
+        let allData = [];
+        let activitiesSet = new Set();
 
-        Papa.parse(csvFile, {
+        // Indexes identifiés lors du diagnostic
+        const IDX_NOM = 1;
+        const IDX_LAT = 18;
+        const IDX_LON = 19;
+        const IDX_SERVICES = 37; // niveau_service
+        const IDX_ADRESSE = 9;
+        const IDX_WEB = 27;
+
+        Papa.parse('data.csv', {
             download: true,
             header: false,
             skipEmptyLines: true,
             complete: function(results) {
-                const data = results.data.slice(1);
+                // On retire l'en-tête
+                allData = results.data.slice(1);
                 
-                data.forEach(function(row) {
-                    const lat = parseFloat(row[18]);
-                    const lon = parseFloat(row[19]);
-
-                    if (!isNaN(lat) && !isNaN(lon)) {
-                        // Utilisation de CircleMarker au lieu de Marker
-                        const marker = L.circleMarker([lat, lon], {
-                            radius: 6,
-                            fillColor: "#e67e22",
-                            color: "#d35400",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        }).addTo(map);
-                        
-                        const popupContent = `
-                            <div class="custom-popup">
-                                <b>${row[1]}</b><br>
-                                📍 ${row[9]}<br>
-                                👥 Public : ${row[4]}<br>
-                                💰 ${row[33] || row[34] || 'Non précisé'}
-                            </div>
-                        `;
-                        marker.bindPopup(popupContent);
+                // Extraction des activités uniques pour le filtre
+                allData.forEach(row => {
+                    const servicesRaw = row[IDX_SERVICES];
+                    if (servicesRaw) {
+                        const items = servicesRaw.split(',');
+                        items.forEach(item => {
+                            const [name, level] = item.split('/');
+                            if (name && level && level !== 'Non') {
+                                activitiesSet.add(name.trim());
+                            }
+                        });
                     }
                 });
+
+                // Remplissage du select
+                const filter = document.getElementById('activity-filter');
+                Array.from(activitiesSet).sort().forEach(act => {
+                    const opt = document.createElement('option');
+                    opt.value = act;
+                    opt.textContent = act;
+                    filter.appendChild(opt);
+                });
+
+                updateMap();
             }
         });
-    </script>
-</body>
-</html>
-        });
+
+        function updateMap() {
+            markersGroup.clearLayers();
+            const filterValue = document.getElementById('activity-filter').value;
+            const searchValue = document.getElementById('search-input').value.toLowerCase();
+
+            allData.forEach(row => {
+                const nom = row[IDX_NOM];
+                const lat = parseFloat(row[IDX_LAT]);
+                const lon = parseFloat(row[IDX_LON]);
+                const servicesRaw = row[IDX_SERVICES] || "";
+                const adresse = row[IDX_ADRESSE];
+                const web = row[IDX_WEB];
+
+                if (isNaN(lat) || isNaN(lon)) return;
+
+                // Filtrage par nom
+                if (searchValue && !nom.toLowerCase().includes(searchValue)) return;
+
+                // Filtrage par activité
+                let matchesActivity = true;
+                if (filterValue !== 'all') {
+                    matchesActivity = servicesRaw.includes(filterValue + '/') && !servicesRaw.includes(filterValue + '/Non');
+                }
+
+                if (matchesActivity) {
+                    const marker = L.circleMarker([lat, lon], {
+                        radius: 8,
+                        fillColor: "#3498db",
+                        color: "#2980b9",
+                        weight: 1,
+                        fillOpacity: 0.8
+                    });
+
+                    // Liste des services pour la popup
+                    const servicesList = servicesRaw.split(',')
+                        .filter(s => s.includes('/') && !s.includes('/Non'))
+                        .map(s => `<span class="service-tag">${s.split('/')[0]}</span>`)
+                        .join('');
+
+                    const popupContent = `
+                        <div class="custom-popup">
+                            <b>${nom}</b>
+                            <small>${adresse || ""}</small>
+                            <div class="services-list">${servicesList}</div>
+                            ${web ? `<br><a href="${web}" target="_blank">Visiter le site web</a>` : ""}
+                        </div>
+                    `;
+                    marker.bindPopup(popupContent);
+                    markersGroup.addLayer(marker);
+                }
+            });
+            
+            // Ajuster la vue si des marqueurs existent
+            if (markersGroup.getLayers().length > 0) {
+                map.fitBounds(markersGroup.getBounds().pad(0.1));
+            }
+        }
+
+        document.getElementById('activity-filter').addEventListener('change', updateMap);
+        document.getElementById('search-input').addEventListener('input', updateMap);
+
     </script>
 </body>
 </html>
