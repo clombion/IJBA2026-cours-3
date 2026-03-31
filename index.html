@@ -41,26 +41,30 @@
         // Chargement et traitement du CSV
         Papa.parse(csvFile, {
             download: true,
-            header: true,
+            header: false, // On désactive les headers pour utiliser les index
             skipEmptyLines: true,
             complete: function(results) {
-                results.data.forEach(function(row) {
-                    // Extraction des coordonnées (on utilise les colonnes latitude/longitude)
-                    const lat = parseFloat(row.latitude);
-                    const lon = parseFloat(row.longitude);
+                // On saute la première ligne (les en-têtes)
+                const data = results.data.slice(1);
+                
+                data.forEach(function(row) {
+                    // Dans votre CSV :
+                    // Index 1 = Nom
+                    // Index 18 = Latitude (première occurrence)
+                    // Index 19 = Longitude (première occurrence)
+                    const name = row[1];
+                    const lat = parseFloat(row[18]);
+                    const lon = parseFloat(row[19]);
 
                     if (!isNaN(lat) && !isNaN(lon)) {
                         const marker = L.marker([lat, lon]).addTo(map);
                         
-                        // Création du contenu de la popup
                         const popupContent = `
                             <div class="custom-popup">
-                                <b>${row.nom}</b><br>
-                                <i>${row.type_lieu}</i><br><br>
-                                📍 ${row.adresse_brut}<br>
-                                👥 Public : ${row.public_cible}<br>
-                                💰 ${row.tarifs || row['Gratuit ou pas'] || 'Non précisé'}<br>
-                                ${row.contact_web ? `<br><a href="${row.contact_web}" target="_blank">Visiter le site web</a>` : ''}
+                                <b>${name}</b><br>
+                                📍 ${row[9]}<br> <!-- adresse_brut -->
+                                👥 Public : ${row[4]}<br> <!-- public_cible -->
+                                💰 ${row[33] || row[34] || 'Non précisé'}
                             </div>
                         `;
                         marker.bindPopup(popupContent);
